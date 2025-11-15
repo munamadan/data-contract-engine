@@ -35,7 +35,6 @@ env/
 # Environment variables
 .env
 .env.local
-.env.example
 
 # Database
 *.db
