@@ -1,19 +1,11 @@
-"""
-Application configuration management using Pydantic Settings.
-Loads configuration from environment variables.
-"""
-
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
-    
-    # Database
+
     DATABASE_URL: str = "postgresql://dce_user:dce_password@localhost:5432/dce_db"
-    
-    # Application
+
     ENV: str = "development"
     DEBUG: bool = True
     LOG_LEVEL: str = "debug"
@@ -38,14 +30,11 @@ class Settings(BaseSettings):
     
     @property
     def is_development(self) -> bool:
-        """Check if running in development mode."""
         return self.ENV == "development"
     
     @property
     def is_production(self) -> bool:
-        """Check if running in production mode."""
         return self.ENV == "production"
 
 
-# Create global settings instance
 settings = Settings()
