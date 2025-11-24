@@ -9,7 +9,7 @@ from app.config import settings
 from app.database import test_connection, close_db
 from app.utils.logging import setup_logging
 from app.utils.exceptions import DCEBaseException, format_error_response
-from app.api import contracts, templates
+from app.api import contracts, templates, validation
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
         content={
             "error": "InternalServerError",
             "message": "An unexpected error occurred",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "path": str(request.url)
         }
     )
@@ -72,6 +72,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 app.include_router(contracts.router, prefix=settings.API_V1_PREFIX)
 app.include_router(templates.router, prefix=settings.API_V1_PREFIX)
+app.include_router(validation.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health")
@@ -85,7 +86,7 @@ async def health_check():
     return {
         "status": "healthy" if db_status == "connected" else "unhealthy",
         "database": db_status,
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(timezone.utc),
         "version": settings.VERSION
     }
 
