@@ -257,3 +257,67 @@ class HealthResponse(BaseModel):
     database: str
     timestamp: datetime
     version: str = "0.1.0"
+
+class ValidationError(BaseModel):
+    field: str
+    error_type: str
+    message: str
+    value: Optional[Any] = None
+    expected: Optional[Any] = None
+    
+    def __str__(self) -> str:
+        return f"{self.field}: {self.message}"
+    
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class ValidationResult(BaseModel):
+    status: str
+    errors: List[ValidationError] = []
+    execution_time_ms: float
+    validated_at: datetime
+    contract_version: str
+    
+    def is_pass(self) -> bool:
+        return self.status == "PASS"
+    
+    def error_count(self) -> int:
+        return len(self.errors)
+    
+    def errors_by_type(self) -> Dict[str, List[ValidationError]]:
+        result = {}
+        for error in self.errors:
+            if error.error_type not in result:
+                result[error.error_type] = []
+            result[error.error_type].append(error)
+        return result
+
+
+class ValidationRequest(BaseModel):
+    data: Dict[str, Any]
+
+
+class BatchValidationResult(BaseModel):
+    total_records: int
+    passed: int
+    failed: int
+    pass_rate: float
+    execution_time_ms: float
+    errors_summary: Dict[str, int]
+    sample_errors: List[ValidationError]
+    batch_id: str
+    
+    def get_top_errors(self, n: int = 10) -> List[tuple]:
+        sorted_errors = sorted(
+            self.errors_summary.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )
+        return sorted_errors[:n]
+
+
+class ValidationHistoryResponse(BaseModel):
+    results: List[Dict[str, Any]]
+    total: int
+    filters_applied: Dict[str, Any]
