@@ -55,8 +55,8 @@ class ContractManager:
                 yaml_content=contract_data.yaml_content,
                 description=contract_data.description,
                 is_active=True,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
             
             self.db.add(contract)
@@ -75,7 +75,7 @@ class ContractManager:
                     "total_changes": 0,
                     "message": "Initial contract creation"
                 },
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
                 created_by="system"
             )
             
@@ -168,7 +168,7 @@ class ContractManager:
         try:
             contract.yaml_content = update_data.yaml_content
             contract.version = new_version
-            contract.updated_at = datetime.utcnow()
+            contract.updated_at = datetime.now(timezone.utc)
             
             if update_data.description is not None:
                 contract.description = update_data.description
@@ -186,7 +186,7 @@ class ContractManager:
                     "total_changes": 0,
                     "message": "Contract updated (change detection in Phase 4)"
                 },
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
                 created_by="system"
             )
             
@@ -231,7 +231,7 @@ class ContractManager:
                 )
             else:
                 contract.is_active = False
-                contract.updated_at = datetime.utcnow()
+                contract.updated_at = datetime.now(timezone.utc)
                 self.logger.info(f"Soft deleted contract {contract_id}")
             
             self.db.commit()
@@ -255,7 +255,7 @@ class ContractManager:
         
         try:
             contract.is_active = True
-            contract.updated_at = datetime.utcnow()
+            contract.updated_at = datetime.now(timezone.utc)
             self.db.commit()
             
             self.logger.info(f"Contract activated: {contract_id}")
