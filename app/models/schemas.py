@@ -321,3 +321,33 @@ class ValidationHistoryResponse(BaseModel):
     results: List[Dict[str, Any]]
     total: int
     filters_applied: Dict[str, Any]
+    
+class ContractVersionResponse(BaseModel):
+    id: str
+    contract_id: str
+    version: str
+    yaml_content: str
+    change_type: Optional[str]
+    change_summary: Optional[dict]
+    created_at: datetime
+    created_by: Optional[str]
+    
+    model_config = {"from_attributes": True}
+
+
+class VersionHistoryResponse(BaseModel):
+    versions: List[ContractVersionResponse]
+    total: int
+
+
+class RollbackRequest(BaseModel):
+    target_version: str = Field(..., description="Version to rollback to")
+    reason: str = Field(..., min_length=1, description="Reason for rollback")
+    created_by: str = Field(..., min_length=1, description="User performing rollback")
+
+
+class RollbackResponse(BaseModel):
+    contract: ContractResponse
+    new_version: str
+    rolled_back_to: str
+    message: str
