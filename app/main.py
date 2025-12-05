@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from app.api import versions
 import logging
 
 from app.config import settings
@@ -73,6 +74,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 app.include_router(contracts.router, prefix=settings.API_V1_PREFIX)
 app.include_router(templates.router, prefix=settings.API_V1_PREFIX)
 app.include_router(validation.router, prefix=settings.API_V1_PREFIX)
+app.include_router(versions.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health")
