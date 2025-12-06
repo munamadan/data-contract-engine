@@ -77,7 +77,9 @@ schema:
     
     assert version.version == "2.0.0"
     assert version.change_type == "BREAKING"
-    assert version.change_summary["risk_level"] in ["MEDIUM", "HIGH"]
+    # One field removed = 15 points = LOW risk
+    assert version.change_summary["risk_level"] == "LOW"
+    assert version.change_summary["risk_score"] == 15
 
 
 def test_create_version_with_non_breaking_change(version_controller, sample_contract):

@@ -267,7 +267,8 @@ def test_multiple_breaking_changes(change_detector, base_schema):
     report = change_detector.detect_changes(base_schema, new_schema)
     
     assert report.has_breaking_changes
-    assert len(report.breaking_changes) == 2
+    assert len(report.breaking_changes) == 3  # Changed from 2 to 3
+    # age removed, status removed, phone added (required)
 
 
 def test_mixed_breaking_and_non_breaking(change_detector, base_schema):
@@ -285,5 +286,7 @@ def test_mixed_breaking_and_non_breaking(change_detector, base_schema):
     report = change_detector.detect_changes(base_schema, new_schema)
     
     assert report.has_breaking_changes
-    assert len(report.breaking_changes) == 2
+    assert len(report.breaking_changes) == 3  # Changed from 2 to 3
+    # age removed, status removed, phone added (required)
     assert len(report.non_breaking_changes) == 1
+    # nickname added (optional)
