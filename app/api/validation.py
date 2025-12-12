@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime, date
 from uuid import UUID
+import uuid
+import tempfile
+import os
 
 from app.database import get_db
 from app.core.validation_engine import ValidationEngine
@@ -12,7 +15,7 @@ from app.models.schemas import (
     BatchValidationResult,
     ValidationHistoryResponse
 )
-from app.models.database import ValidationResult as DBValidationResult
+from app.models.database import ValidationResult as DBValidationResult, BatchSummary
 
 router = APIRouter(prefix="/validate", tags=["validation"])
 
@@ -159,3 +162,192 @@ def get_error_summary(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Summary error: {str(e)}")
+
+
+# ============ NEW ENDPOINTS ADDED BELOW ============
+
+
+@router.post("/{contract_id}/upload")
+async def upload_file_for_validation(
+    contract_id: UUID,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    file_type: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload a file (CSV, JSON, or Parquet) for batch validation.
+    
+    Args:
+        contract_id: UUID of the contract to validate against
+        file: Uploaded file containing data to validate
+        file_type: Type of file (csv, json, parquet)
+        background_tasks: FastAPI background tasks for async processing
+    
+    Returns:
+        Batch ID and status URL for tracking
+    """
+    # Check file size (max 100MB)
+    if file.size > 100 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 100MB)")
+    
+    # Validate file type
+    if file_type not in ['csv', 'json', 'parquet']:
+        raise HTTPException(
+            status_code=422, 
+            detail="Unsupported file type. Must be csv, json, or parquet"
+        )
+    
+    # Generate batch ID
+    batch_id = uuid.uuid4()
+    
+    # Save uploaded file to temporary location
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_type}") as tmp_file:
+        content = await file.read()
+        tmp_file.write(content)
+        tmp_path = tmp_file.name
+    
+    # Add background task for processing
+    background_tasks.add_task(
+        process_file_background,
+        contract_id,
+        tmp_path,
+        file_type,
+        batch_id,
+        db
+    )
+    
+    return {
+        "batch_id": str(batch_id),
+        "message": "File processing started",
+        "status_url": f"/api/v1/validate/batch/{batch_id}/status",
+        "contract_id": str(contract_id),
+        "file_name": file.filename,
+        "file_size": file.size
+    }
+
+
+@router.get("/batch/{batch_id}/status")
+async def get_batch_status(
+    batch_id: UUID, 
+    db: Session = Depends(get_db)
+):
+    """
+    Get the status of a batch validation job.
+    
+    Args:
+        batch_id: UUID of the batch job
+    
+    Returns:
+        Current status, progress, and results (if completed)
+    """
+    # Try to find completed batch in BatchSummary table
+    batch = db.query(BatchSummary).filter(BatchSummary.batch_id == str(batch_id)).first()
+    
+    if not batch:
+        # Check if there are validation results with this batch_id
+        # This indicates the batch is still processing
+        validation_results = db.query(DBValidationResult).filter(
+            DBValidationResult.batch_id == str(batch_id)
+        ).count()
+        
+        if validation_results > 0:
+            # Batch is processing, return progress
+            return {
+                "batch_id": str(batch_id),
+                "status": "PROCESSING",
+                "progress": 50.0,  # Could be more sophisticated with actual progress tracking
+                "total_records": validation_results * 2,  # Estimate
+                "processed_records": validation_results
+            }
+        else:
+            # Batch not found or not started
+            return {
+                "batch_id": str(batch_id),
+                "status": "PROCESSING",
+                "progress": 0.0,
+                "total_records": 0,
+                "processed_records": 0
+            }
+    
+    # Batch completed, return results
+    return {
+        "batch_id": str(batch_id),
+        "status": "COMPLETED",
+        "progress": 100.0,
+        "total_records": batch.total_records,
+        "processed_records": batch.total_records,
+        "result": {
+            "contract_id": batch.contract_id,
+            "passed": batch.passed,
+            "failed": batch.failed,
+            "pass_rate": batch.pass_rate,
+            "execution_time_ms": batch.execution_time_ms,
+            "errors_summary": batch.errors_summary,
+            "processed_at": batch.processed_at.isoformat() if batch.processed_at else None
+        }
+    }
+
+
+async def process_file_background(
+    contract_id: UUID,
+    file_path: str,
+    file_type: str,
+    batch_id: UUID,
+    db: Session
+):
+    """
+    Background task to process uploaded file for validation.
+    
+    Args:
+        contract_id: UUID of the contract
+        file_path: Path to the temporary file
+        file_type: Type of file (csv, json, parquet)
+        batch_id: UUID for this batch job
+        db: Database session
+    """
+    from app.core.batch_processor import BatchProcessor  # Import here to avoid circular imports
+    
+    try:
+        processor = BatchProcessor(db)
+        
+        # Process the file
+        result = await processor.process_file(
+            contract_id=contract_id,
+            file_path=file_path,
+            file_type=file_type,
+            batch_id=batch_id
+        )
+        
+        # Save batch summary to database
+        batch_summary = BatchSummary(
+            id=str(uuid.uuid4()),
+            batch_id=str(batch_id),
+            contract_id=str(contract_id),
+            total_records=result.total_records,
+            passed=result.passed,
+            failed=result.failed,
+            pass_rate=result.pass_rate,
+            execution_time_ms=result.execution_time_ms,
+            errors_summary=result.errors_summary,
+            processed_at=datetime.utcnow()
+        )
+        
+        db.add(batch_summary)
+        db.commit()
+        
+        # Log completion
+        print(f"Batch {batch_id} completed: {result.passed}/{result.total_records} passed "
+              f"({result.pass_rate:.2f}%)")
+              
+    except Exception as e:
+        # Log error but don't crash - file will be cleaned up
+        print(f"Error processing batch {batch_id}: {str(e)}")
+        
+    finally:
+        # Clean up temporary file
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                print(f"Error removing temporary file {file_path}: {str(e)}")
