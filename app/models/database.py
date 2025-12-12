@@ -29,6 +29,7 @@ class Contract(Base):
     versions = relationship("ContractVersion", back_populates="contract", cascade="all, delete-orphan")
     validation_results = relationship("ValidationResult", back_populates="contract", cascade="all, delete-orphan")
     quality_metrics = relationship("QualityMetric", back_populates="contract", cascade="all, delete-orphan")
+    batch_summaries = relationship("BatchSummary", back_populates="contract", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<Contract(id={self.id}, name='{self.name}', version='{self.version}')>"
@@ -166,3 +167,46 @@ class QualityMetric(Base):
         if self.total_validations == 0:
             return 0.0
         return float((self.passed / self.total_validations) * 100)
+
+
+class BatchSummary(Base):
+    __tablename__ = "batch_summaries"
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    batch_id = Column(String(36), unique=True, nullable=False, index=True)
+    contract_id = Column(String(36), ForeignKey('contracts.id'), nullable=False, index=True)
+    total_records = Column(Integer, nullable=False)
+    passed = Column(Integer, nullable=False)
+    failed = Column(Integer, nullable=False)
+    pass_rate = Column(Float, nullable=False)
+    execution_time_ms = Column(Float, nullable=False)
+    errors_summary = Column(JSON, nullable=True)
+    processed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    contract = relationship("Contract", back_populates="batch_summaries")
+    
+    __table_args__ = (
+        Index('ix_batch_summaries_processed_at', 'processed_at'),
+    )
+    
+    def __repr__(self) -> str:
+        return f"<BatchSummary(id={self.id}, batch_id={self.batch_id}, pass_rate={self.pass_rate}%)>"
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": str(self.id),
+            "batch_id": str(self.batch_id),
+            "contract_id": str(self.contract_id),
+            "total_records": self.total_records,
+            "passed": self.passed,
+            "failed": self.failed,
+            "pass_rate": self.pass_rate,
+            "execution_time_ms": self.execution_time_ms,
+            "errors_summary": self.errors_summary,
+            "processed_at": self.processed_at.isoformat() if self.processed_at else None,
+        }
+    
+    def calculate_pass_rate(self) -> float:
+        if self.total_records == 0:
+            return 0.0
+        return float((self.passed / self.total_records) * 100)
