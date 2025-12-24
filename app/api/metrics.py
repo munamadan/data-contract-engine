@@ -24,7 +24,7 @@ async def get_daily_metrics(
     start_date = end_date - timedelta(days=days)
     
     metrics = db.query(QualityMetric).filter(
-        QualityMetric.contract_id == contract_id,
+        QualityMetric.contract_id == str(contract_id),
         QualityMetric.metric_date >= start_date,
         QualityMetric.metric_date <= end_date
     ).order_by(QualityMetric.metric_date).all()
@@ -56,7 +56,7 @@ async def get_trend_data(
     db: Session = Depends(get_db)
 ):
     aggregator = MetricsAggregator(db)
-    trend_data = aggregator.get_trend_data(contract_id, days)
+    trend_data = aggregator.get_trend_data(str(contract_id), days)
     return trend_data
 
 
@@ -71,7 +71,7 @@ async def get_top_errors(
     start_date = end_date - timedelta(days=days)
     
     metrics = db.query(QualityMetric).filter(
-        QualityMetric.contract_id == contract_id,
+        QualityMetric.contract_id == str(contract_id),
         QualityMetric.metric_date >= start_date
     ).all()
     
@@ -165,7 +165,7 @@ async def get_quality_score(
     start_date = end_date - timedelta(days=days)
     
     metrics = db.query(QualityMetric).filter(
-        QualityMetric.contract_id == contract_id,
+        QualityMetric.contract_id == str(contract_id),
         QualityMetric.metric_date >= start_date
     ).order_by(QualityMetric.metric_date.desc()).all()
     
@@ -179,7 +179,7 @@ async def get_quality_score(
     trend = aggregator._calculate_trend(quality_scores)
     
     pass_rate_component = latest.pass_rate * 0.7
-    consistency_score = aggregator._calculate_consistency_score(contract_id)
+    consistency_score = aggregator._calculate_consistency_score(str(contract_id))
     consistency_component = consistency_score * 0.2
     freshness_component = min(latest.total_validations / 1000, 1.0) * 10
     

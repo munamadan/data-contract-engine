@@ -63,3 +63,7 @@ def test_connection() -> bool:
     except Exception as e:
         logger.error(f"Database connection test failed: {e}")
         return False
+
+def get_db_session():
+    db = SessionLocal()
+    return db
