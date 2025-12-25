@@ -1,4 +1,5 @@
 from typing import Optional, Dict, Any
+from datetime import datetime
 
 
 class DCEBaseException(Exception):
@@ -218,15 +219,90 @@ class AuthenticationRequiredError(AuthorizationError):
         )
 
 
+# ============ NEW EXCEPTIONS ADDED BELOW ============
+
+
+class UnsupportedFileFormatError(DCEBaseException):
+    """Raised when an unsupported file format is provided."""
+    def __init__(self, file_type: str, supported_formats: list, details: Optional[Dict] = None):
+        message = f"Unsupported file format: '{file_type}'. Supported formats: {', '.join(supported_formats)}"
+        super().__init__(
+            message=message,
+            details=details or {
+                "file_type": file_type,
+                "supported_formats": supported_formats
+            },
+            status_code=415  # Unsupported Media Type
+        )
+
+
+class FileTooLargeError(DCEBaseException):
+    """Raised when a file exceeds the maximum allowed size."""
+    def __init__(self, file_size: int, max_size: int, details: Optional[Dict] = None):
+        message = f"File size ({file_size} bytes) exceeds maximum allowed size ({max_size} bytes)"
+        super().__init__(
+            message=message,
+            details=details or {
+                "file_size": file_size,
+                "max_size": max_size,
+                "max_size_mb": max_size / (1024 * 1024)
+            },
+            status_code=413  # Payload Too Large
+        )
+
+
+class BatchJobError(DCEBaseException):
+    """Raised when a batch job encounters an error."""
+    def __init__(self, batch_id: str, stage: str, error_message: str, details: Optional[Dict] = None):
+        message = f"Batch job '{batch_id}' failed at stage '{stage}': {error_message}"
+        super().__init__(
+            message=message,
+            details=details or {
+                "batch_id": batch_id,
+                "stage": stage,
+                "error": error_message
+            },
+            status_code=500
+        )
+
+
+class MetricsError(DCEBaseException):
+    """Raised when metrics calculation or retrieval fails."""
+    def __init__(self, operation: str, error_message: str, details: Optional[Dict] = None):
+        message = f"Metrics {operation} failed: {error_message}"
+        super().__init__(
+            message=message,
+            details=details or {
+                "operation": operation,
+                "error": error_message
+            },
+            status_code=500
+        )
+
+
+class SchedulerError(DCEBaseException):
+    """Raised when scheduler operations fail."""
+    def __init__(self, operation: str, error_message: str, details: Optional[Dict] = None):
+        message = f"Scheduler {operation} failed: {error_message}"
+        super().__init__(
+            message=message,
+            details=details or {
+                "operation": operation,
+                "error": error_message
+            },
+            status_code=500
+        )
+
+
 def get_http_status_code(exception: Exception) -> int:
+    """Get the HTTP status code for an exception."""
     if isinstance(exception, DCEBaseException):
         return exception.status_code
     return 500
 
 
 def format_error_response(exception: Exception, path: Optional[str] = None) -> Dict[str, Any]:
-    from datetime import datetime
-    
+    """Format an exception into a standard error response."""
     if isinstance(exception, DCEBaseException):
         response = exception.to_dict()
     else:

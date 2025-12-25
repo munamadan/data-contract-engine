@@ -35,6 +35,7 @@ env/
 # Environment variables
 .env
 .env.local
+.env.example
 
 # Database
 *.db
@@ -59,3 +60,11 @@ alembic/versions/*.pyc
 
 PROGRESS.md
 BUGS_AND_IMPROVEMENTS.md
+
+test_batch.py
+test_data.json
+test_data.jsonl
+test_invalid.csv
+test_valid.csv
+test_mini.csv
+setup_phase5.sh
