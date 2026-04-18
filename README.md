@@ -262,5 +262,5 @@ Built with inspiration from industry data contract solutions:
 
 ## Contact
 
-- GitHub Issues: [Report bugs](https://github.com/yourusername/data-contract-engine/issues)
-- Email: your.email@example.com
+- GitHub Issues: [Report bugs](https://github.com/munamadan/data-contract-engine/issues)
+- Email: dipankharel@gmaik.com
